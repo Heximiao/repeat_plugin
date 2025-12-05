@@ -14,6 +14,7 @@ from src.plugin_system import (
     EventType,
     MaiMessages,
 )
+from src.plugin_system.base.component_types import CustomEventHandlerResult
 from src.common.logger import get_logger
 
 logger = get_logger("repeat_plugin")
@@ -79,7 +80,7 @@ class RepeatHandler(BaseEventHandler):
     chat_history: Dict[str, deque] = {}
     last_repeated_message: Optional[str] = None
 
-    async def execute(self, message: MaiMessages | None) -> Tuple[bool, bool, Optional[str], None]:
+    async def execute(self, message: MaiMessages | None) -> Tuple[bool, bool, Optional[str], Optional[CustomEventHandlerResult], Optional[MaiMessages]]:
         # 获取 debug 模式和复读概率配置
         debug_mode: bool = self.get_config("repeat.debug_mode", False)
         repeat_probability: float = self.get_config("repeat.repeat_probability", 1.0)
@@ -91,7 +92,7 @@ class RepeatHandler(BaseEventHandler):
         if message is None:
             if debug_mode:
                 logger.info("[repeat_plugin][repeat_handler] message is None")
-            return True, True, None, None
+            return True, True, None, None, None
 
         # 获取群 ID
         group_id = _first_text(
@@ -103,7 +104,7 @@ class RepeatHandler(BaseEventHandler):
         if not group_id:
             if debug_mode:
                 logger.info("[repeat_plugin][repeat_handler] group_id 未获取到")
-            return True, True, None, None
+            return True, True, None, None, None
         group_id = _safe_str(group_id)
 
         # 获取消息文本
@@ -118,20 +119,20 @@ class RepeatHandler(BaseEventHandler):
         if not text:
             if debug_mode:
                 logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息文本为空，跳过")
-            return True, True, None, None
+            return True, True, None, None, None
             
         # 使用正则表达式来匹配并丢弃通知消息
         notice_pattern = r'"post_type"\s*:\s*"notice"'
         if re.search(notice_pattern, text):
             if debug_mode:
                 logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息为通知事件，已丢弃")
-            return True, True, None, None
+            return True, True, None, None, None
             
         # 丢弃特殊格式消息（如图片、表情等）
         if text.startswith("[CQ:"):
             if debug_mode:
                 logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息为特殊格式，跳过")
-            return True, True, None, None
+            return True, True, None, None, None
 
         # 不复读机器人自己消息
         is_self = getattr(message, "is_self", False)
@@ -141,7 +142,7 @@ class RepeatHandler(BaseEventHandler):
                 self.last_repeated_message = None
             if debug_mode:
                 logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息来自机器人自己，跳过")
-            return True, True, None, None
+            return True, True, None, None, None
 
         # 初始化队列
         if group_id not in self.chat_history:
@@ -161,7 +162,7 @@ class RepeatHandler(BaseEventHandler):
                         logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 满足复读条件，但通过跳过概率检查，本次不复读。")
                     # 直接返回，不进行任何复读操作
                     history.append(text)
-                    return True, True, None, None
+                    return True, True, None, None, None
 
                 # 如果没有跳过，再进行复读概率判断
                 if random.random() <= repeat_probability:
@@ -188,7 +189,7 @@ class RepeatHandler(BaseEventHandler):
         if debug_mode:
             logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息队列更新后={list(history)}")
 
-        return True, True, None, None
+        return True, True, None, None, None
 
 # ---------------- 插件注册 ----------------
 @register_plugin

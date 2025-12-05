@@ -12,7 +12,7 @@
   "license": "MIT",
   "host_application": {
     "min_version": "0.10.1",
-    "max_version": "0.10.2"
+    "max_version": "0.10.3 "
   },
   "entry": "plugin.py",
   "homepage_url": "https://github.com/Heximiao/repeat_plugin",
