@@ -1,0 +1,29 @@
+# repeat_plugin - 自动生成的配置文件
+# poke_plugin插件
+
+# 插件基本信息
+[plugin]
+
+# 插件名称
+name = "repeat_plugin"
+
+# 插件版本
+version = "1.0.0"
+
+# 是否启用插件
+enabled = true
+
+
+# 复读功能配置
+[repeat]
+
+# 是否开启调试模式，开启后会打印详细日志
+debug_mode = false
+
+# 动态复读，就是每次复读别人的话的顺序不一样，建议0.8
+repeat_probability = 0.8
+
+# 完全不复读的概率 (0~1)
+skip_probability = 0.1
+
+

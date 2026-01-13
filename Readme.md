@@ -23,18 +23,6 @@
 
 
 
-2. 配置 Napcat
-此插件依赖于 Napcat HTTP API 来发送消息。请确保你的 Napcat 客户端已启动，并且 HTTP API 端口已正确配置。一定要是127.0.0.1端口！！！！！！
-
-在 repeat_plugin 文件夹下的 plugin.py 文件中，你可以修改以下配置：
-
-Python
-
-# ---------------- Napcat 配置 ----------------
-NAPCAT_HOST = "127.0.0.1" # Napcat 的 IP 地址，如果不在本地请修改
-NAPCAT_PORT = 4999       # Napcat 的 HTTP 端口
-如果你修改了 Napcat 的默认端口或 IP 地址，请确保这里也相应地进行修改。
-
 [repeat]
 repeat_probability = 1.0 # 复读概率 (0~1)，默认为 1.0 (必复读)
 注意： 在目前的代码版本中，复读概率逻辑已被移除，该配置字段不再生效，但你仍可以保留它。

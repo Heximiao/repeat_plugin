@@ -125,9 +125,10 @@ class RepeatHandler(BaseEventHandler):
             return True, True, None, None, None
 
         # 丢弃 CQ 码消息（图片、表情等）
-        if text.startswith("[CQ:"):
+        # 只要消息中包含 CQ 码（表情、图片等），就直接跳过不复读
+        if "[CQ:" in text:
             if debug_mode:
-                logger.info(f"[repeat_plugin] 群={group_id} 特殊格式消息，跳过。")
+                logger.info(f"[repeat_plugin] 群={group_id} 消息中包含 CQ 码片段，直接屏蔽。")
             return True, True, None, None, None
 
         # 不复读机器人自己的消息
@@ -190,7 +191,7 @@ class RepeatPlugin(BasePlugin):
     config_schema: dict = {
         "plugin": {
             "name": ConfigField(type=str, default="repeat_plugin", description="插件名称"),
-            "version": ConfigField(type=str, default="1.0.0", description="插件版本"),
+            "version": ConfigField(type=str, default="1.1.0", description="插件版本"),
             "enabled": ConfigField(type=bool, default=True, description="是否启用插件"),
         },
         "repeat": {
