@@ -1,9 +1,8 @@
 from collections import deque
-from typing import Any
+from typing import Any, cast
 
 from maibot_sdk import EventHandler, Field, MaiBotPlugin, PluginConfigBase
 from maibot_sdk.types import EventType
-
 import random
 
 
@@ -59,7 +58,7 @@ class RepeatPlugin(MaiBotPlugin):
         intercept_message=True,
     )
     async def handle_repeat(self, message: dict, **kwargs: Any) -> None:
-        cfg = self.config.repeat
+        cfg = cast(RepeatPluginConfig, self.config).repeat
         stream_id = message.get("session_id", "")
         text = (message.get("processed_plain_text") or "").strip()
 

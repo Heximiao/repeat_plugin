@@ -3,7 +3,7 @@ config_version = "1.0.0"
 enabled = true
 
 [repeat]
-debug_mode = false
+debug_mode = true
 trigger_count = 3
-repeat_probability = 0.8
-skip_probability = 0.1
+repeat_probability = 1.0
+skip_probability = 0.0
