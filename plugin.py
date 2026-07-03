@@ -1,9 +1,10 @@
 from collections import deque
 from typing import Any, cast
 
-from maibot_sdk import EventHandler, Field, MaiBotPlugin, PluginConfigBase
-from maibot_sdk.types import EventType
 import random
+
+from maibot_sdk import Field, HookHandler, MaiBotPlugin, PluginConfigBase
+from maibot_sdk.types import HookMode
 
 
 class PluginSectionConfig(PluginConfigBase):
@@ -51,13 +52,17 @@ class RepeatPlugin(MaiBotPlugin):
         self_id = message.get("message_info", {}).get("additional_config", {}).get("self_id", "")
         return bool(user_id and self_id and user_id == self_id)
 
-    @EventHandler(
-        "repeat_handler",
+    @HookHandler(
+        "chat.receive.after_process",
+        name="repeat_handler",
         description="检测群聊中连续重复消息并进行复读",
-        event_type=EventType.ON_MESSAGE,
-        intercept_message=True,
+        mode=HookMode.BLOCKING,
     )
-    async def handle_repeat(self, message: dict, **kwargs: Any) -> None:
+    async def handle_repeat(self, **kwargs: Any) -> None:
+        message = kwargs.get("message", {})
+        if not isinstance(message, dict):
+            return
+
         cfg = cast(RepeatPluginConfig, self.config).repeat
         stream_id = message.get("session_id", "")
         text = (message.get("processed_plain_text") or "").strip()
