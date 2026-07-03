@@ -16,8 +16,17 @@
   "entry": "plugin.py",
   "homepage_url": "https://github.com/Heximiao/repeat_plugin",
   "repository_url": "https://github.com/Heximiao/repeat_plugin",
-  "keywords": ["repeat", "maimai", "复读", "梗", "插件"],
-  "categories": ["Fun", "Interaction"],
+  "keywords": [
+    "repeat",
+    "maimai",
+    "复读",
+    "梗",
+    "插件"
+  ],
+  "categories": [
+    "Fun",
+    "Interaction"
+  ],
   "default_locale": "zh-CN",
   "locales_path": "_locales",
   "plugin_info": {
@@ -30,6 +39,10 @@
         "description": "复读处理器，用于检测群聊中的连续重复消息并进行复读。"
       }
     ],
-    "features": ["复读", "自动互动"]
-  }
+    "features": [
+      "复读",
+      "自动互动"
+    ]
+  },
+  "id": "何夕.repeat_plugin"
 }
