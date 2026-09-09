@@ -36,7 +36,9 @@ class RepeatPlugin(MaiBotPlugin):
     config_model = RepeatPluginConfig
 
     _chat_history: dict[str, deque] = {}
-    _last_repeated: str | None = None
+    # 每个流(群/私聊)最近一次复读的文本。按 stream_id 隔离，
+    # 避免不同群/私聊之间互相抑制或重置复读状态。
+    _last_repeated: dict[str, str] = {}
 
     async def on_load(self) -> None:
         self.ctx.logger.info("复读插件已加载")
@@ -74,28 +76,43 @@ class RepeatPlugin(MaiBotPlugin):
 
         history = self._chat_history.setdefault(stream_id, deque(maxlen=10))
         trigger = max(cfg.trigger_count, 2)
+        last_repeated = self._last_repeated.get(stream_id)
 
+        # 机器人自己的消息不参与计数，避免复读消息把队列推向下一轮触发，
+        # 导致同一段刷屏里 bot 反复复读（拖尾复读）。
         if self._is_self(message):
-            recent = list(history)[-(trigger - 1):] if len(history) >= trigger - 1 else []
-            if len(history) >= trigger - 1 and all(e == text for e in recent) and text == self._last_repeated:
-                self._last_repeated = None
-            history.append(text)
+            if text == last_repeated:
+                self._last_repeated.pop(stream_id, None)
             return
 
         if len(history) >= trigger - 1:
             recent = list(history)[-(trigger - 1):]
             if all(e == text for e in recent):
+                # 同一段连续重复中已经复读过，等出现不同消息后再恢复，避免拖尾。
+                if text == last_repeated:
+                    history.append(text)
+                    return
+
                 if random.random() <= cfg.skip_probability:
                     if cfg.debug_mode:
                         self.ctx.logger.info("[repeat] 命中跳过概率，不复读")
                     history.append(text)
                     return
 
-                if random.random() <= cfg.repeat_probability and text != self._last_repeated:
-                    self._last_repeated = text
+                if random.random() <= cfg.repeat_probability:
+                    self._last_repeated[stream_id] = text
+                    # 这一组 trigger 条消息已经消费，清空窗口，
+                    # 后续相同消息重新计数，不会在长队列里反复触发。
+                    history.clear()
                     await self.ctx.send.text(text, stream_id)
                     if cfg.debug_mode:
                         self.ctx.logger.info("[repeat] 已复读: %s", text)
+                    return
+
+        # 出现与最近复读不同的文本时，解除该流的复读抑制，
+        # 让新的重复段可以再次触发。
+        if last_repeated is not None and text != last_repeated:
+            self._last_repeated.pop(stream_id, None)
 
         history.append(text)
 

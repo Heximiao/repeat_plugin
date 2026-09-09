@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "id": "com.hexing.repeat-plugin",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "name": "复读插件",
   "description": "检测群聊中连续重复的消息并自动进行复读，为群聊增添乐趣。",
   "author": {
