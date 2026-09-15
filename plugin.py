@@ -1,10 +1,24 @@
 from collections import deque
 from typing import Any, cast
-
 import random
+import re
 
 from maibot_sdk import Field, HookHandler, MaiBotPlugin, PluginConfigBase
 from maibot_sdk.types import HookMode
+
+# 媒体占位符、特殊协议与系统通知正则匹配
+_MEDIA_PLACEHOLDER_RE = re.compile(
+    r"\[\s*(?:"
+    r"CQ:[a-z0-9_-]+|"
+    r"(?:表情|表情包|图片|动画表情|语音|视频|文件|转发消息|合并转发|嵌套转发消息|QQ表情|未知表情|事件|引用消息|回复了)"
+    r"(?:[\s：:\d\-].*?)?"
+    r")\s*\]",
+    re.IGNORECASE,
+)
+
+_POKE_NOTICE_TEXT_RE = re.compile(
+    r"^.*戳了戳.+（这是QQ的一个功能，用于提及某人，但没那么明显）$"
+)
 
 
 class PluginSectionConfig(PluginConfigBase):
@@ -41,7 +55,7 @@ class RepeatPlugin(MaiBotPlugin):
     _last_repeated: dict[str, str] = {}
 
     async def on_load(self) -> None:
-        self.ctx.logger.info("复读插件已加载")
+        self.ctx.logger.info("复读插件已加载 (搭载媒体占位符与特殊消息过滤防护)")
 
     async def on_unload(self) -> None:
         self.ctx.logger.info("复读插件已卸载")
@@ -50,9 +64,48 @@ class RepeatPlugin(MaiBotPlugin):
         pass
 
     def _is_self(self, message: dict) -> bool:
-        user_id = message.get("message_info", {}).get("user_info", {}).get("user_id", "")
-        self_id = message.get("message_info", {}).get("additional_config", {}).get("self_id", "")
+        user_info = message.get("message_info", {}).get("user_info", {})
+        user_id = str(user_info.get("user_id", "") or "")
+        additional_config = message.get("message_info", {}).get("additional_config", {})
+        self_id = str(additional_config.get("self_id", "") or "")
         return bool(user_id and self_id and user_id == self_id)
+
+    def _is_media_or_special_message(self, message: dict, text: str) -> bool:
+        """识别通知、媒体、指令、被@以及各类非纯文本占位符，防止把 [表情包] 等降级文本发到群里。"""
+        # 1. 结构化标记直接判断
+        if (
+            message.get("is_emoji")
+            or message.get("is_picture")
+            or message.get("is_notify")
+            or message.get("is_command")
+            or message.get("is_mentioned")
+        ):
+            return True
+
+        # 2. 检查底层 raw_message 组件列表，包含非纯文本组件时不复读
+        raw_components = message.get("raw_message")
+        if isinstance(raw_components, list):
+            for comp in raw_components:
+                if isinstance(comp, dict):
+                    comp_type = comp.get("type", "")
+                    if comp_type in ("emoji", "image", "voice", "file", "video", "forward", "reply"):
+                        return True
+
+        # 3. 文本协议与占位符兜底过滤（兼容 OneBot HTML 实体转义 &#91;/&#93;）
+        normalized = text.replace("&#91;", "[").replace("&#93;", "]").strip()
+        if not normalized:
+            return True
+
+        if normalized.startswith("[CQ:") or _MEDIA_PLACEHOLDER_RE.search(normalized):
+            return True
+
+        if _POKE_NOTICE_TEXT_RE.fullmatch(normalized):
+            return True
+
+        if normalized.startswith("[事件-") or normalized.startswith("[回复了"):
+            return True
+
+        return False
 
     @HookHandler(
         "chat.receive.after_process",
@@ -67,14 +120,23 @@ class RepeatPlugin(MaiBotPlugin):
 
         cfg = cast(RepeatPluginConfig, self.config).repeat
         stream_id = message.get("session_id", "")
+        if not stream_id:
+            return
+
         text = (message.get("processed_plain_text") or "").strip()
-
-        if not stream_id or not text:
-            return
-        if message.get("is_notify"):
-            return
-
         history = self._chat_history.setdefault(stream_id, deque(maxlen=10))
+
+        # 检查是否为通知、媒体或包含占位符的非纯文本消息
+        if self._is_media_or_special_message(message, text):
+            # 媒体/特殊/通知消息打断纯文本连续复读，重置当前群的复读历史窗口
+            history.clear()
+            if cfg.debug_mode:
+                self.ctx.logger.info("[repeat] 检测到媒体/占位符/特殊消息，已清空复读窗口: %r", text)
+            return
+
+        if not text:
+            return
+
         trigger = max(cfg.trigger_count, 2)
         last_repeated = self._last_repeated.get(stream_id)
 
